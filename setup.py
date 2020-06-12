@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from json import dump
-from os import chdir, mkdir, path, rename
+from os import chdir, mkdir, path, replace
 from sys import argv
 
 TASKS_VERSION = "2.0.0"
@@ -270,10 +270,10 @@ if __name__ == "__main__":
 
     if (args.debugger is not None and
             args.debugger != "jlink" and
-            path.exists("../find_debugger.py") == False):
-        rename("find_debugger.py", "../find_debugger.py")
-    if (path.exists("../.clang-format") == False):
-        rename(".clang-format", "../.clang-format")
+            path.exists("find_debugger.py")):
+        replace("find_debugger.py", "../find_debugger.py")
+    if (path.exists(".clang-format")):
+        replace(".clang-format", "../.clang-format")
     if (path.exists("../build") == False):
         mkdir("../build")
     if (path.exists("../.vscode") == False):
