@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from json import dump
-from os import mkdir, path, rename
+from os import chdir, mkdir, path, rename
 from sys import argv
 
 TASKS_VERSION = "2.0.0"
@@ -16,14 +16,14 @@ jlink_device = ""
 def generate_launch(args):
     launch = {
         "name": "Launch",
-        "cwd": "${workspaceRoot}",
+        "cwd": "${workspaceFolder}",
         "executable": "${workspaceFolder}/build/" + args.app + ".elf",
         "request": "launch",
         "type": "cortex-debug",
     }
     attach = {
         "name": "Attach",
-        "cwd": "${workspaceRoot}",
+        "cwd": "${workspaceFolder}",
         "executable": "${workspaceFolder}/build/" + args.app + ".elf",
         "request": "attach",
         "type": "cortex-debug",
@@ -132,8 +132,8 @@ def generate_tasks(args):
                 "type": "shell",
                 "command": "python",
                 "args": [
-                    "find_debugger.py",
-                    "--device",
+                    "\"${workspaceFolder}/find_debugger.py\"",
+                    "--debugger",
                     "bmp"
                 ]
             }
@@ -161,14 +161,11 @@ def generate_tasks(args):
         elif (args.debugger == "stlink"):
             # Add flash command using STM32CubeProgrammer
             flash["command"] = "STM32_Programmer_CLI"
-            flash["windows"] = {
-                "command": "STM32_Programmer_CLI.exe"
-            }
             flash["args"] = [
-                "-c"
-                "port=/dev/ttyACM0"
-                "-w"
-                "0x08000000"
+                "-c",
+                "port=/dev/ttyACM0",
+                "-w",
+                "0x08000000",
                 "-v"
             ]
             # Device path will need to be updated with find script
@@ -177,8 +174,8 @@ def generate_tasks(args):
                 "type": "shell",
                 "command": "python",
                 "args": [
-                    "find_debugger.py",
-                    "--device",
+                    "\"${workspaceFolder}/find_debugger.py\"",
+                    "--debugger",
                     "stlink"
                 ]
             }
@@ -213,7 +210,10 @@ def generate_c_cpp_properties(args):
         defines.append(args.family[:-2].upper() + args.family[-2:].lower())
     conf = {
         "name": "STM32",
-        "defines": defines
+        "defines": defines,
+        "includePath": [
+            "${workspaceFolder}/**"
+        ]
     }
 
     parent = {
@@ -228,12 +228,12 @@ def generate_c_cpp_properties(args):
 
 def generate_jlink_flash_script(executable):
     with open("../flash.jlink", 'w') as file:
-        file.write("h")
-        file.write("r")
-        file.write("erase")
-        file.write("loadbin build/" + executable + ".bin,0x08000000")
-        file.write("r")
-        file.write("g")
+        file.write("h\n")
+        file.write("r\n")
+        file.write("erase\n")
+        file.write("loadbin build/" + executable + ".bin,0x08000000\n")
+        file.write("r\n")
+        file.write("g\n")
         file.write("exit")
 
 
@@ -266,6 +266,8 @@ if __name__ == "__main__":
         parser.error("invalid STM32 family selected")
 
     # Setup and move files and directories
+    chdir(path.dirname(path.realpath(argv[0])))
+
     if (args.debugger is not None and
             args.debugger != "jlink" and
             path.exists("../find_debugger.py") == False):

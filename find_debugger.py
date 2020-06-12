@@ -1,7 +1,9 @@
 from argparse import ArgumentParser
 from collections import namedtuple
 from json import dump, load
+from os import chdir, path
 from serial.tools import list_ports
+from sys import argv
 
 
 def update_bmp(device_path):
@@ -45,27 +47,40 @@ def update_stlink(device_path):
 
 
 if __name__ == "__main__":
-    Device = namedtuple("Device", "vid pid description")
-    bmp = Device(0x1d50, 0x6018, "Black Magic Probe")
-    stlink = Device(None, None, "ST-Link")
-    devices = {
+    Debugger = namedtuple("Debugger", "vid pid, description")
+    bmp = [
+        Debugger(0x1d50, 0x6018, "Black Magic Probe")
+    ]
+    stlink = [
+        Debugger(0x0483, 0x3744, "ST-Link v1"),
+        Debugger(0x0483, 0x3748, "ST-Link v2"),
+        Debugger(0x0483, 0x374b, "ST-Link v2.1"),
+        Debugger(0x0483, 0x3752, "ST-Link v2.1"),
+        Debugger(0x0483, 0x374d, "ST-Link v3 Loader"),
+        Debugger(0x0483, 0x374e, "ST-Link v3"),
+        Debugger(0x0483, 0x374f, "ST-Link v3"),
+        Debugger(0x0483, 0x3753, "ST-Link v3")
+    ]
+    debuggers = {
         "bmp": bmp,
         "stlink": stlink
     }
 
     parser = ArgumentParser()
-    parser.add_argument("-d", "--device", dest="dev", required=True)
+    parser.add_argument("--debugger", dest="family", required=True)
     args = parser.parse_args()
 
-    if (args.dev is None or args.dev not in devices):
+    if (args.family is None or args.family not in debuggers):
         parser.error("invalid device")
 
-    target = devices[args.dev]
+    family = debuggers[args.family]
 
     for port in list(list_ports.comports()):
-        if port.vid == target.vid and port.pid == target.pid:
-            if (target is bmp):
-                update_bmp(port.device)
-            elif (target is stlink):
-                update_stlink(port.device)
-            break
+        for model in family:
+            if (port.vid == model.vid and port.pid == model.pid):
+                chdir(path.dirname(path.realpath(argv[0])))
+                if (family is bmp):
+                    update_bmp(port.device)
+                elif (family is stlink):
+                    update_stlink(port.device)
+                quit()
