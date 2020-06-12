@@ -8,9 +8,9 @@ def update_bmp(device_path):
     # Find and replace current BMPGDBSerialPort device path in debug configurations
     with open(".vscode/launch.json", 'r') as file:
         data = load(file)
-        for conf in enumerate(data["configurations"]):
+        for i, conf in enumerate(data["configurations"]):
             if ("BMPGDBSerialPort" in conf):
-                conf["BMPGDBSerialPort"] = device_path
+                data["configurations"][i]["BMPGDBSerialPort"] = device_path
     with open(".vscode/launch.json", 'w') as file:
         dump(data, file, indent=4)
 
