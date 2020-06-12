@@ -23,7 +23,8 @@ The generated environment assumes the following dependencies on PATH:
 
 ## Usage
 Clone this repo into your project directory and run `python setup.py --help` to see configuration options. The script performs the following actions:
-- moves the `.clang-format` file into the project directory
+- moves the `.clang-format` configuration into the project directory
+- moves `find_debugger.py` into the project directory (if needed for chosen debugger)
 - creates a `build` folder in the project directory
 - creates the `.vscode` environment folder in the project directory and generates the following three files:
   - `c_cpp_properties.json` - contains the project defines and include path
