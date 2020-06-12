@@ -178,7 +178,7 @@ if __name__ == "__main__":
         parser.error("invalid family selected")
 
     # Setup and move files and directories
-    if (path.exists("../bmp.py") == False):
+    if (args.debugger is not None and args.debugger == "bmp" and path.exists("../bmp.py") == False):
         rename("bmp.py", "../bmp.py")
     if (path.exists("../.clang-format") == False):
         rename(".clang-format", "../.clang-format")
