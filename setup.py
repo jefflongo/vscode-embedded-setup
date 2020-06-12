@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from json import dump
-from os import path, rename, mkdir
+from os import mkdir, path, rename
 from sys import argv
 
 TASKS_VERSION = "2.0.0"
@@ -9,6 +9,8 @@ C_CPP_PROPERTIES_VERSION = 4
 
 debugger_options = ["bmp", "jlink", "stlink"]
 hal_options = ["hal", "ll", "both"]
+
+jlink_device = ""
 
 
 def generate_launch(args):
@@ -31,8 +33,8 @@ def generate_launch(args):
         launch["servertype"] = "bmp"
         attach["servertype"] = "bmp"
 
-        launch["BMPGDBSerialPort"] = ""
-        attach["BMPGDBSerialPort"] = ""
+        launch["BMPGDBSerialPort"] = "/dev/ttyACM0"
+        attach["BMPGDBSerialPort"] = "/dev/ttyACM0"
 
         launch["interface"] = "swd"
         attach["interface"] = "swd"
@@ -45,9 +47,9 @@ def generate_launch(args):
         launch["serverpath"] = serverpath
         attach["serverpath"] = serverpath
 
-        device = input("Full device name (i.e. STM32G431KB): ").upper()
-        launch["device"] = device
-        attach["device"] = device
+        global jlink_device
+        launch["device"] = jlink_device
+        attach["device"] = jlink_device
 
         launch["interface"] = "swd"
         attach["interface"] = "swd"
@@ -89,10 +91,10 @@ def generate_tasks(args):
     build = {
         "label": "build",
         "type": "shell",
+        "command": "make",
         "windows": {
             "command": "mingw32-make"
         },
-        "command": "make",
         "group": {
             "kind": "build",
             "isDefault": True
@@ -100,19 +102,92 @@ def generate_tasks(args):
     }
     tasks = [build]
 
-    if (args.debugger is not None and args.debugger == "bmp"):
-        bmp = {
-            "label": "bmp",
+    if (args.debugger is not None and args.app is not None):
+        flash = {
+            "label": "flash",
             "type": "shell",
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "command": "python",
-            "args": [
-                "bmp.py"
-            ]
         }
-        tasks.append(bmp)
+
+        if (args.debugger == "bmp"):
+            # Add flash command using GDB scripting
+            flash["command"] = "arm-none-eabi-gdb"
+            flash["args"] = [
+                "-nx",
+                "--batch",
+                "-ex",
+                "'target extended-remote /dev/ttyACM0'",
+                "-ex",
+                "'attach 1'",
+                "-ex",
+                "'load'",
+                "-ex",
+                "'compare-sections'",
+                "-ex",
+                "'kill'",
+                "build/" + args.app + ".elf"
+            ]
+            # Device path will need to be updated with find script
+            find = {
+                "label": "find",
+                "type": "shell",
+                "command": "python",
+                "args": [
+                    "find_debugger.py",
+                    "--device",
+                    "bmp"
+                ]
+            }
+            tasks.append(find)
+        elif (args.debugger == "jlink"):
+            # Add flash command using JLinkCommander
+            global jlink_device
+            jlink_device = input(
+                "Full device name (i.e. STM32G431KB): ").upper()
+            flash["command"] = "jlink"
+            flash["args"] = [
+                "-device",
+                jlink_device,
+                "-if",
+                "swd",
+                "-speed",
+                "4000",
+                "-autoconnect",
+                "1",
+                "-CommandFile",
+                "flash.jlink"
+            ]
+            # We'll also need to generate the flash.jlink script
+            generate_jlink_flash_script(args.app)
+        elif (args.debugger == "stlink"):
+            # Add flash command using STM32CubeProgrammer
+            flash["command"] = "STM32_Programmer_CLI"
+            flash["windows"] = {
+                "command": "STM32_Programmer_CLI.exe"
+            }
+            flash["args"] = [
+                "-c"
+                "port=/dev/ttyACM0"
+                "-w"
+                "0x08000000"
+                "-v"
+            ]
+            # Device path will need to be updated with find script
+            find = {
+                "label": "find",
+                "type": "shell",
+                "command": "python",
+                "args": [
+                    "find_debugger.py",
+                    "--device",
+                    "stlink"
+                ]
+            }
+            tasks.append(find)
+
+        flash["dependsOn"] = [
+            "build"
+        ]
+        tasks.append(flash)
 
     parent = {
         "version": TASKS_VERSION,
@@ -135,18 +210,31 @@ def generate_c_cpp_properties(args):
         if (args.hal == "ll" or args.hal == "both"):
             defines.append("USE_FULL_LL_DRIVER")
     if (args.family is not None):
-        defines.append(args.family[:9].upper() + args.family[-2:].lower())
+        defines.append(args.family[:-2].upper() + args.family[-2:].lower())
     conf = {
         "name": "STM32",
         "defines": defines
     }
 
     parent = {
-        "configurations": [conf],
+        "configurations": [
+            conf
+        ],
         "version": C_CPP_PROPERTIES_VERSION
     }
     with open("../.vscode/c_cpp_properties.json", 'w') as file:
         dump(parent, file, indent=4)
+
+
+def generate_jlink_flash_script(executable):
+    with open("../flash.jlink", 'w') as file:
+        file.write("h")
+        file.write("r")
+        file.write("erase")
+        file.write("loadbin build/" + executable + ".bin,0x08000000")
+        file.write("r")
+        file.write("g")
+        file.write("exit")
 
 
 if __name__ == "__main__":
@@ -175,11 +263,13 @@ if __name__ == "__main__":
         (args.family[:5].upper() != "STM32" or
          args.family[-2:].lower() != "xx" or
          len(args.family) != 11)):
-        parser.error("invalid family selected")
+        parser.error("invalid STM32 family selected")
 
     # Setup and move files and directories
-    if (args.debugger is not None and args.debugger == "bmp" and path.exists("../bmp.py") == False):
-        rename("bmp.py", "../bmp.py")
+    if (args.debugger is not None and
+            args.debugger != "jlink" and
+            path.exists("../find_debugger.py") == False):
+        rename("find_debugger.py", "../find_debugger.py")
     if (path.exists("../.clang-format") == False):
         rename(".clang-format", "../.clang-format")
     if (path.exists("../build") == False):
