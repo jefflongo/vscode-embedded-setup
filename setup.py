@@ -117,6 +117,8 @@ def generate_tasks(args):
                 "-ex",
                 "'target extended-remote /dev/ttyACM0'",
                 "-ex",
+                "'monitor sdwp_scan'",
+                "-ex",
                 "'attach 1'",
                 "-ex",
                 "'load'",
