@@ -63,11 +63,11 @@ def generate_launch(args):
 
         launch["configFiles"] = [
             "interface/stlink.cfg",
-            "target/" + args.family[:7].lower() + ".cfg"
+            "target/" + args.family[:7].lower() + "x.cfg"
         ]
         attach["configFiles"] = [
             "interface/stlink.cfg",
-            "target/" + args.family[:7].lower() + ".cfg"
+            "target/" + args.family[:7].lower() + "x.cfg"
         ]
 
         launch["servertype"] = "openocd"
