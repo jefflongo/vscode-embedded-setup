@@ -20,6 +20,7 @@ def generate_launch(args):
         "executable": "${workspaceFolder}/build/" + args.app + ".elf",
         "request": "launch",
         "type": "cortex-debug",
+        "runToMain": True,
     }
     attach = {
         "name": "Attach",
