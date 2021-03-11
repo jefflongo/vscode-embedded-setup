@@ -8,7 +8,6 @@ LAUNCH_VERSION = "0.2.0"
 C_CPP_PROPERTIES_VERSION = 4
 
 debugger_options = ["bmp", "jlink", "stlink"]
-hal_options = ["hal", "ll", "both"]
 
 jlink_device = ""
 
@@ -203,12 +202,9 @@ def generate_c_cpp_properties(args):
         "_DEBUG",
         "UNICODE",
         "_UNICODE",
+        "USE_HAL_DRIVER",
+        "USE_FULL_LL_DRIVER",
     ]
-    if (args.hal is not None):
-        if (args.hal == "hal" or args.hal == "both"):
-            defines.append("USE_HAL_DRIVER")
-        if (args.hal == "ll" or args.hal == "both"):
-            defines.append("USE_FULL_LL_DRIVER")
     if (args.family is not None):
         defines.append(args.family[:-2].upper() + args.family[-2:].lower())
     conf = {
@@ -248,8 +244,6 @@ if __name__ == "__main__":
                         help="type of debugger [" + ", ".join(debugger_options) + "] (jlink requires JLink tools installed, stlink requires openocd installed)")
     parser.add_argument("--family", dest="family",
                         help="STM32 family (i.e. STM32G431xx)")
-    parser.add_argument("--hal", dest="hal",
-                        help="HAL libraries to be included [" + ", ".join(hal_options) + "]")
     args = parser.parse_args()
 
     # Validate args
@@ -258,9 +252,6 @@ if __name__ == "__main__":
 
     if (args.debugger is not None and args.debugger not in debugger_options):
         parser.error("invalid debugger selected")
-
-    if (args.hal is not None and args.hal not in hal_options):
-        parser.error("invalid HAL option selected")
 
     if (args.family is not None and
         (args.family[:5].upper() != "STM32" or
